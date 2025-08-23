@@ -47,10 +47,7 @@ const registerSchema = yup.object().shape({
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
     .required('Confirm Password is required'),
-  gender: yup
-    .mixed<SignupData['gender']>()
-    .oneOf(['male', 'female', 'prefer_not_to_say'])
-    .required('Gender is required'),
+  
 });
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
@@ -77,7 +74,6 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       email: '',
       password: '',
       confirmPassword: '',
-      gender: 'prefer_not_to_say',
       phoneNumber: '',
     },
   });

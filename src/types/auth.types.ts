@@ -2,7 +2,6 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  gender?: Gender;
   phoneNumber?: string;
   isEmailVerified: boolean;
   createdAt: string;
@@ -19,7 +18,6 @@ export interface SignupData {
   email: string;
   password: string;
   confirmPassword: string;
-  gender: Gender;
   phoneNumber: string;
 }
 
@@ -43,8 +41,6 @@ export interface AuthState {
   otpSent: boolean;
   emailVerified: boolean;
 }
-
-export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 
 export interface ForgotPasswordData {
   email: string;

@@ -8,7 +8,6 @@ export interface User {
   avatar?: string;
   nickname?: string;
   dateOfBirth?: Date;
-  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   address?: Address;
   createdAt: Date;
   updatedAt: Date;
