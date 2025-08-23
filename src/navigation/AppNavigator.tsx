@@ -303,6 +303,11 @@ const CameraStack = () => (
       component={SubmissionConfirmationScreen}
       options={{ headerShown: false }}
     />
+    <Stack.Screen 
+      name="DashboardMain" 
+      component={DashboardScreen}
+      options={{ headerShown: false }}
+    />
   </Stack.Navigator>
 );
 

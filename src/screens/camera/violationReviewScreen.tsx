@@ -188,6 +188,7 @@ const ViolationReviewScreen = ({ navigation, route }: ViolationReviewScreenProps
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
