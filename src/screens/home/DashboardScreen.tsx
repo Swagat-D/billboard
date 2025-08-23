@@ -1,52 +1,32 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React, { useRef, useEffect, useState } from 'react';
 import {
-  Alert,
-  Animated,
-  Dimensions,
-  Image,
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  Modal,
+  RefreshControl,
+  Alert,
+  Image,
 } from 'react-native';
-import ErrorBoundary from '../../components/common/ErrorBoundary';
+import { Ionicons } from '@expo/vector-icons';
+import NavBar from '../../components/common/NavBar';
 import LoadingOverlay from '../../components/common/LoadingSpinner';
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/themes/theme';
 import { useAppDispatch, useAppSelector } from '../../store';
-import { fetchDashboardStats, fetchRecentReports } from '../../store/slices/dashboardSlice';
+import { fetchDashboardStats, fetchRecentReports, clearError } from '../../store/slices/dashboardSlice';
 
-const { width } = Dimensions.get('window');
-const isSmallDevice = width < 375;
+import { StackNavigationProp } from '@react-navigation/stack';
 
-interface StatCardProps {
-  title: string;
-  value: number | string;
-  icon: string;
-  color: string;
-  backgroundColor: string;
-  onPress?: () => void;
-  loading?: boolean;
-}
+type DashboardScreenProps = {
+  navigation: StackNavigationProp<any>;
+};
 
-interface RecentReportProps {
-  id: string;
-  location: string;
-  address: string;
-  status: 'pending' | 'approved' | 'rejected' | 'under_review';
-  createdAt: string;
-  violationType: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  imageUrl?: string;
-}
-
-const DashboardScreen: React.FC = ({ navigation }: any) => {
+const BillboardDashboard = ({ navigation }: DashboardScreenProps) => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const { 
@@ -56,41 +36,23 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
     error, 
     lastUpdated 
   } = useAppSelector((state) => state.dashboard);
-  
+
   const [refreshing, setRefreshing] = useState(false);
+  const [showAllReportsModal, setShowAllReportsModal] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     loadDashboardData();
-    startAnimations();
+    startAnimation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      // Refresh data when screen comes into focus
-      const shouldRefresh = !lastUpdated || 
-        (Date.now() - new Date(lastUpdated).getTime()) > 5 * 60 * 1000; // 5 minutes
-      
-      if (shouldRefresh) {
-        loadDashboardData();
-      }
-    }, [lastUpdated])
-  );
-
-  const startAnimations = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const startAnimation = () => {
+    Animated.timing(fadeAnim, { 
+      toValue: 1, 
+      duration: 600, 
+      useNativeDriver: true 
+    }).start();
   };
 
   const loadDashboardData = async () => {
@@ -121,6 +83,13 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
     }
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning,';
+    if (hour < 17) return 'Good Afternoon,';
+    return 'Good Evening,';
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -133,33 +102,43 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
     return date.toLocaleDateString();
   };
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return '#10B981';
+      case 'rejected': return '#EF4444';
+      case 'under_review': return '#3B82F6';
+      default: return '#F59E0B';
+    }
   };
 
-  const StatCard: React.FC<StatCardProps> = ({ 
-    title, 
-    value, 
-    icon, 
-    color, 
-    backgroundColor, 
-    onPress,
-    loading = false
-  }) => (
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'critical': return '#DC2626';
+      case 'high': return '#EA580C';
+      case 'medium': return '#D97706';
+      default: return '#65A30D';
+    }
+  };
+
+  interface StatCardProps {
+    title: string;
+    value: number | string;
+    icon: string; // Ionicons uses string names for icons
+    color: string;
+    onPress: () => void;
+    loading?: boolean;
+  }
+
+  const StatCard = ({ title, value, icon, color, onPress, loading = false }: StatCardProps) => (
     <TouchableOpacity
-      style={[styles.statCard, { backgroundColor }]}
+      style={[styles.statCard, { borderColor: color + '30' }]}
       onPress={onPress}
       activeOpacity={0.8}
       disabled={loading}
     >
       <View style={styles.statCardContent}>
-        <View style={[styles.statIconContainer, { backgroundColor: color + '20' }]}>
-          <Ionicons name={icon as any} size={24} color={color} />
-        </View>
-        <View style={styles.statTextContainer}>
+        <Ionicons name={icon} size={24} color={color} />
+        <View style={styles.statInfo}>
           {loading ? (
             <View style={styles.loadingPlaceholder} />
           ) : (
@@ -173,105 +152,101 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
     </TouchableOpacity>
   );
 
-  const RecentReportCard: React.FC<RecentReportProps> = ({ 
-    id,
-    location, 
-    address,
-    status, 
-    createdAt, 
-    violationType,
-    priority,
-    imageUrl
-  }) => {
-    const getStatusColor = (status: string) => {
-      switch (status) {
-        case 'approved': return COLORS.success;
-        case 'rejected': return COLORS.error;
-        case 'under_review': return COLORS.info;
-        default: return COLORS.warning;
-      }
-    };
+  interface RecentReport {
+    id: string;
+    location: string;
+    address: string;
+    violationType: string;
+    priority: string;
+    status: string;
+    createdAt: string;
+  }
 
-    const getStatusIcon = (status: string) => {
-      switch (status) {
-        case 'approved': return 'checkmark-circle';
-        case 'rejected': return 'close-circle';
-        case 'under_review': return 'eye';
-        default: return 'time';
-      }
-    };
+  interface RecentReportCardProps {
+    report: RecentReport;
+  }
 
-    const getPriorityColor = (priority: string) => {
-      switch (priority) {
-        case 'critical': return COLORS.error;
-        case 'high': return COLORS.warning;
-        case 'medium': return COLORS.info;
-        default: return COLORS.gray[500];
-      }
-    };
-
-    return (
-      <TouchableOpacity 
-        style={styles.reportCard} 
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('ReportStatus', { reportId: id })}
-      >
-        <View style={styles.reportCardContent}>
-          <View style={styles.reportHeader}>
-            <View style={styles.reportInfo}>
-              <Text style={styles.reportLocation} numberOfLines={1}>
-                {location}
+  const RecentReportCard = ({ report }: RecentReportCardProps) => (
+    <TouchableOpacity 
+      style={styles.reportCard}
+      onPress={() => navigation.navigate('ReportDetails', { reportId: report.id })}
+      activeOpacity={0.8}
+    >
+      <View style={styles.reportHeader}>
+        <View style={styles.reportInfo}>
+          <Text style={styles.reportLocation} numberOfLines={1}>
+            {report.location}
+          </Text>
+          <Text style={styles.reportAddress} numberOfLines={1}>
+            {report.address}
+          </Text>
+          <View style={styles.reportMeta}>
+            <Text style={styles.violationType}>{report.violationType}</Text>
+            <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(report.priority) + '20' }]}>
+              <Text style={[styles.priorityText, { color: getPriorityColor(report.priority) }]}>
+                {report.priority.toUpperCase()}
               </Text>
-              <Text style={styles.reportAddress} numberOfLines={1}>
-                {address}
-              </Text>
-              <View style={styles.reportMeta}>
-                <Text style={styles.reportType}>{violationType}</Text>
-                <View style={[
-                  styles.priorityDot,
-                  { backgroundColor: getPriorityColor(priority) }
-                ]} />
-                <Text style={[
-                  styles.priorityText,
-                  { color: getPriorityColor(priority) }
-                ]}>
-                  {priority.toUpperCase()}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.reportRight}>
-              {imageUrl && (
-                <Image source={{ uri: imageUrl }} style={styles.reportThumbnail} />
-              )}
-              <View style={[
-                styles.statusBadge, 
-                { backgroundColor: getStatusColor(status) + '20' }
-              ]}>
-                <Ionicons 
-                  name={getStatusIcon(status) as any} 
-                  size={12} 
-                  color={getStatusColor(status)} 
-                />
-                <Text style={[
-                  styles.statusText, 
-                  { color: getStatusColor(status) }
-                ]}>
-                  {status.replace('_', ' ').charAt(0).toUpperCase() + status.replace('_', ' ').slice(1)}
-                </Text>
-              </View>
             </View>
           </View>
-          <Text style={styles.reportDate}>{formatDate(createdAt)}</Text>
         </View>
-      </TouchableOpacity>
-    );
-  };
+        <View style={styles.reportRight}>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(report.status) + '20' }]}>
+            <Text style={[styles.statusText, { color: getStatusColor(report.status) }]}>
+              {report.status.replace('_', ' ').toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.reportDate}>{formatDate(report.createdAt)}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const AllReportsModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showAllReportsModal}
+      onRequestClose={() => setShowAllReportsModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>All Recent Reports</Text>
+            <TouchableOpacity onPress={() => setShowAllReportsModal(false)}>
+              <Ionicons name="close" size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalScrollView}>
+            {recentReports.map((report) => (
+              <RecentReportCard key={report.id} report={report} />
+            ))}
+          </ScrollView>
+          
+          <TouchableOpacity 
+            style={styles.viewAllButton}
+            onPress={() => {
+              setShowAllReportsModal(false);
+              navigation.navigate('ReportHistory');
+            }}
+          >
+            <Text style={styles.viewAllButtonText}>View Complete History</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   if (error && !stats) {
     return (
       <SafeAreaView style={styles.container}>
+        <NavBar 
+          onSettingsPress={() => navigation.navigate('Settings')}
+          onNotificationPress={() => navigation.navigate('Notifications')}
+          notificationCount={0}
+        />
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={COLORS.error} />
+          <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
           <Text style={styles.errorTitle}>Something went wrong</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadDashboardData}>
@@ -283,168 +258,126 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
   }
 
   return (
-    <ErrorBoundary>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-        <LoadingOverlay visible={isLoading && !refreshing && !stats} message="Loading dashboard..." />
-        
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh}
-              colors={[COLORS.primary[500]]}
-              tintColor={COLORS.primary[500]}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <Animated.View
-            style={[
-              styles.header,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <LoadingOverlay visible={isLoading && !refreshing && !stats} message="Loading dashboard..." />
+      
+      <NavBar 
+        onSettingsPress={() => navigation.navigate('Settings')}
+        onNotificationPress={() => navigation.navigate('Notifications')}
+        notificationCount={stats?.unreadNotifications || 0}
+      />
+
+      <ScrollView 
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#10B981']}
+            tintColor="#10B981"
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          {/* Header Section */}
+          <View style={styles.headerCard}>
             <View style={styles.headerContent}>
-              <View style={styles.userInfo}>
-                <View style={styles.avatar}>
-                  <Ionicons name="person-circle-outline" size={48} color={COLORS.gray[400]} />
-                </View>
-                <View>
-                  <Text style={styles.greeting}>{getGreeting()}!</Text>
-                  <Text style={styles.userName}>
-                    {user?.name || 'User'}
-                  </Text>
+              <View style={styles.headerText}>
+                <Text style={styles.greeting}>{getGreeting()}</Text>
+                <Text style={styles.userName}>Citizen Reporter</Text>
+                <Text style={styles.subtitle}>Here&apos;s your billboard monitoring overview for today</Text>
+              </View>
+              <View style={styles.headerIcon}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="eye" size={32} color="#10B981" />
                 </View>
               </View>
-              <TouchableOpacity
-                style={styles.notificationButton}
-                onPress={() => navigation.navigate('Notifications')}
-              >
-                <Ionicons name="notifications-outline" size={24} color={COLORS.text.primary} />
-                {stats?.unreadNotifications > 0 && (
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationBadgeText}>
-                      {stats.unreadNotifications > 99 ? '99+' : stats.unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
             </View>
-          </Animated.View>
+          </View>
+
+          {/* Stats Grid */}
+          <View style={styles.statsGrid}>
+            <StatCard
+              title="Total Reports"
+              value={stats?.totalReports || 0}
+              icon="document-text"
+              color="#10B981"
+              onPress={() => navigation.navigate('ReportHistory')}
+              loading={isLoading}
+            />
+            <StatCard
+              title="Pending"
+              value={stats?.pendingReports || 0}
+              icon="time"
+              color="#F59E0B"
+              onPress={() => navigation.navigate('ReportHistory', { filter: 'pending' })}
+              loading={isLoading}
+            />
+            <StatCard
+              title="Approved"
+              value={stats?.approvedReports || 0}
+              icon="checkmark-circle"
+              color="#10B981"
+              onPress={() => navigation.navigate('ReportHistory', { filter: 'approved' })}
+              loading={isLoading}
+            />
+            <StatCard
+              title="Alerts"
+              value={stats?.rejectedReports || 0}
+              icon="alert-circle"
+              color="#EF4444"
+              onPress={() => navigation.navigate('ReportHistory', { filter: 'rejected' })}
+              loading={isLoading}
+            />
+          </View>
 
           {/* Quick Actions */}
-          <Animated.View
-            style={[
-              styles.quickActionsSection,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
+          <View style={styles.quickActionsSection}>
             <Text style={styles.sectionTitle}>Quick Actions</Text>
             <View style={styles.quickActions}>
               <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => navigation.navigate('Camera')}
               >
-                <View style={[styles.quickActionIcon, { backgroundColor: COLORS.primary[500] + '20' }]}>
-                  <Ionicons name="camera" size={32} color={COLORS.primary[500]} />
+                <View style={[styles.quickActionIcon, { backgroundColor: '#10B981' }]}>
+                  <Ionicons name="add" size={24} color="white" />
                 </View>
-                <Text style={styles.quickActionText}>Report Billboard</Text>
+                <Text style={styles.quickActionText}>Add Report</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={styles.quickActionButton}
-                onPress={() => navigation.navigate('Map')}
+                onPress={() => navigation.navigate('Scanner')}
               >
-                <View style={[styles.quickActionIcon, { backgroundColor: COLORS.secondary[500] + '20' }]}>
-                  <Ionicons name="map" size={32} color={COLORS.secondary[500]} />
+                <View style={[styles.quickActionIcon, { backgroundColor: '#3B82F6' }]}>
+                  <Ionicons name="scan" size={24} color="white" />
                 </View>
-                <Text style={styles.quickActionText}>View Map</Text>
+                <Text style={styles.quickActionText}>Scan Billboard</Text>
               </TouchableOpacity>
-            </View>
-          </Animated.View>
-
-          {/* Stats Section */}
-          <Animated.View
-            style={[
-              styles.statsSection,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Your Impact</Text>
-            <View style={styles.statsGrid}>
-              <StatCard
-                title="Reports Submitted"
-                value={stats?.totalReports || 0}
-                icon="document-text"
-                color={COLORS.primary[500]}
-                backgroundColor={COLORS.primary[50]}
-                onPress={() => navigation.navigate('ReportHistory')}
-                loading={isLoading}
-              />
-              <StatCard
-                title="Points Earned"
-                value={stats?.totalPoints || 0}
-                icon="star"
-                color={COLORS.gamification.points}
-                backgroundColor={COLORS.gamification.points + '20'}
-                onPress={() => navigation.navigate('Leaderboard')}
-                loading={isLoading}
-              />
-              <StatCard
-                title="Approved Reports"
-                value={stats?.approvedReports || 0}
-                icon="checkmark-circle"
-                color={COLORS.success}
-                backgroundColor={COLORS.billboard.approved}
-                onPress={() => navigation.navigate('ReportHistory', { filter: 'approved' })}
-                loading={isLoading}
-              />
-              <StatCard
-                title="Current Rank"
-                value={stats?.currentRank ? `#${stats.currentRank}` : 'N/A'}
-                icon="trophy"
-                color={COLORS.gamification.leaderboard}
-                backgroundColor={COLORS.gamification.leaderboard + '20'}
-                onPress={() => navigation.navigate('Leaderboard')}
-                loading={isLoading}
-              />
-            </View>
-          </Animated.View>
-
-          {/* Recent Reports */}
-          <Animated.View
-            style={[
-              styles.recentSection,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recent Reports</Text>
+              
               <TouchableOpacity
+                style={styles.quickActionButton}
                 onPress={() => navigation.navigate('ReportHistory')}
-                style={styles.seeAllButton}
               >
-                <Text style={styles.seeAllText}>See All</Text>
-                <Ionicons name="chevron-forward" size={16} color={COLORS.primary[500]} />
+                <View style={[styles.quickActionIcon, { backgroundColor: '#8B5CF6' }]}>
+                  <Ionicons name="list" size={24} color="white" />
+                </View>
+                <Text style={styles.quickActionText}>All Reports</Text>
               </TouchableOpacity>
             </View>
-            
+          </View>
+
+          {/* Recent Activity */}
+          <View style={styles.recentSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recent Activity</Text>
+              <TouchableOpacity onPress={() => setShowAllReportsModal(true)}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
+
             {isLoading && !recentReports?.length ? (
               <View style={styles.loadingContainer}>
                 {[1, 2, 3].map((item) => (
@@ -452,190 +385,99 @@ const DashboardScreen: React.FC = ({ navigation }: any) => {
                 ))}
               </View>
             ) : recentReports?.length > 0 ? (
-              recentReports.slice(0, 5).map((report: RecentReportProps) => (
-                <RecentReportCard key={report.id} {...report} />
+              recentReports.slice(0, 3).map((report) => (
+                <RecentReportCard key={report.id} report={report} />
               ))
             ) : (
               <View style={styles.emptyState}>
-                <Ionicons name="document-outline" size={48} color={COLORS.gray[400]} />
-                <Text style={styles.emptyStateTitle}>No reports yet</Text>
+                <Ionicons name="document-outline" size={48} color="#9CA3AF" />
+                <Text style={styles.emptyStateTitle}>No activity yet</Text>
                 <Text style={styles.emptyStateMessage}>
                   Start reporting billboard violations to see them here
                 </Text>
-                <TouchableOpacity
-                  style={styles.emptyStateButton}
-                  onPress={() => navigation.navigate('Camera')}
-                >
-                  <Text style={styles.emptyStateButtonText}>Create First Report</Text>
-                </TouchableOpacity>
               </View>
             )}
-          </Animated.View>
+          </View>
+        </Animated.View>
+      </ScrollView>
 
-          {/* City Stats */}
-          {stats?.cityStats && (
-            <Animated.View
-              style={[
-                styles.cityStatsSection,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
-              <Text style={styles.sectionTitle}>City Overview</Text>
-              <View style={styles.cityStatsCard}>
-                <View style={styles.cityStatRow}>
-                  <Text style={styles.cityStatLabel}>Total Reports (City)</Text>
-                  <Text style={styles.cityStatValue}>
-                    {stats.cityStats.totalReports.toLocaleString()}
-                  </Text>
-                </View>
-                <View style={styles.cityStatRow}>
-                  <Text style={styles.cityStatLabel}>Active Contributors</Text>
-                  <Text style={styles.cityStatValue}>
-                    {stats.cityStats.activeUsers.toLocaleString()}
-                  </Text>
-                </View>
-                <View style={styles.cityStatRow}>
-                  <Text style={styles.cityStatLabel}>Compliance Rate</Text>
-                  <Text style={[
-                    styles.cityStatValue,
-                    { color: stats.cityStats.complianceRate > 80 ? COLORS.success : COLORS.warning }
-                  ]}>
-                    {stats.cityStats.complianceRate}%
-                  </Text>
-                </View>
-              </View>
-            </Animated.View>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    </ErrorBoundary>
+      <AllReportsModal />
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F8FAFC',
   },
   scrollView: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: SPACING[4],
-    paddingBottom: SPACING[8],
+  content: {
+    padding: 20,
   },
-  header: {
-    paddingTop: SPACING[4],
-    marginBottom: SPACING[6],
+  headerCard: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
   },
   headerContent: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  userInfo: {
-    flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: SPACING[3],
-    backgroundColor: COLORS.gray[200],
+  headerText: {
+    flex: 1,
   },
   greeting: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
-    fontWeight: "500",
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
   },
   userName: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: "bold",
-    color: COLORS.text.primary,
-    marginTop: 2,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
   },
-  notificationButton: {
-    position: 'relative',
-    padding: SPACING[2],
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: SPACING[1],
-    right: SPACING[1],
-    backgroundColor: COLORS.error,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+  headerIcon: {
+    marginLeft: 16,
+  },
+  iconContainer: {
+    width: 60,
+    height: 60,
+    backgroundColor: 'white',
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.background,
-  },
-  notificationBadgeText: {
-    color: COLORS.text.inverse,
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-  quickActionsSection: {
-    marginBottom: SPACING[6],
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: "bold",
-    color: COLORS.text.primary,
-    marginBottom: SPACING[4],
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: SPACING[3],
-  },
-  quickActionButton: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: SPACING[5],
-    alignItems: 'center',
-    shadowColor: COLORS.gray[900],
+    shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
-  quickActionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING[3],
-  },
-  quickActionText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: "600",
-    color: COLORS.text.primary,
-    textAlign: 'center',
-  },
-  statsSection: {
-    marginBottom: SPACING[6],
-  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING[3],
+    gap: 16,
+    marginBottom: 24,
   },
   statCard: {
     flex: 1,
-    minWidth: (width - SPACING[4] * 2 - SPACING[3]) / 2,
-    borderRadius: RADIUS.lg,
-    padding: SPACING[4],
-    shadowColor: COLORS.gray[900],
+    minWidth: '45%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -645,229 +487,243 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  statIconContainer: {
+  statInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  statTitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  loadingPlaceholder: {
+    height: 24,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  quickActionsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickActionIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING[3],
+    marginBottom: 8,
   },
-  statTextContainer: {
-    flex: 1,
-  },
-  statValue: {
-    fontSize: TYPOGRAPHY.fontSize['2xl'],
-    fontWeight: "bold",
-    color: COLORS.text.primary,
-    marginBottom: 2,
-  },
-  statTitle: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
-    fontWeight: "500",
-  },
-  loadingPlaceholder: {
-    height: 28,
-    backgroundColor: COLORS.gray[200],
-    borderRadius: RADIUS.sm,
-    marginBottom: 4,
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+    textAlign: 'center',
   },
   recentSection: {
-    marginBottom: SPACING[6],
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING[4],
+    marginBottom: 16,
   },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  seeAllText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.primary[500],
-    fontWeight: "600",
-    marginRight: SPACING[1],
+  viewAllText: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '600',
   },
   reportCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING[3],
-    shadowColor: COLORS.gray[900],
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  reportCardContent: {
-    padding: SPACING[4],
-  },
   reportHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING[2],
   },
   reportInfo: {
     flex: 1,
-    marginRight: SPACING[3],
+    marginRight: 12,
   },
   reportLocation: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: "600",
-    color: COLORS.text.primary,
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
   },
   reportAddress: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
-    marginBottom: SPACING[2],
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
   },
   reportMeta: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  reportType: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.text.secondary,
-    marginRight: SPACING[2],
+  violationType: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginRight: 8,
   },
-  priorityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: SPACING[1],
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   priorityText: {
     fontSize: 10,
-    fontWeight: "bold",
+    fontWeight: '600',
   },
   reportRight: {
     alignItems: 'flex-end',
   },
-  reportThumbnail: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.sm,
-    backgroundColor: COLORS.gray[200],
-    marginBottom: SPACING[2],
-  },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING[2],
-    paddingVertical: SPACING[1],
-    borderRadius: RADIUS.md,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 4,
   },
   statusText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: "600",
-    marginLeft: SPACING[1],
+    fontSize: 10,
+    fontWeight: '600',
   },
   reportDate: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.text.hint,
-    fontWeight: "500",
+    fontSize: 12,
+    color: '#9CA3AF',
   },
   loadingContainer: {
-    gap: SPACING[3],
+    gap: 12,
   },
   reportCardSkeleton: {
-    height: 100,
-    backgroundColor: COLORS.gray[100],
-    borderRadius: RADIUS.lg,
+    height: 80,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: SPACING[8],
+    paddingVertical: 32,
   },
   emptyStateTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: "600",
-    color: COLORS.text.primary,
-    marginTop: SPACING[3],
-    marginBottom: SPACING[2],
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4B5563',
+    marginTop: 12,
+    marginBottom: 8,
   },
   emptyStateMessage: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.secondary,
+    fontSize: 14,
+    color: '#6B7280',
     textAlign: 'center',
-    marginBottom: SPACING[5],
   },
-  emptyStateButton: {
-    backgroundColor: COLORS.primary[500],
-    paddingHorizontal: SPACING[6],
-    paddingVertical: SPACING[3],
-    borderRadius: RADIUS.lg,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  emptyStateButtonText: {
-  color: COLORS.text.inverse,
-  fontSize: TYPOGRAPHY.fontSize.md,
-  fontWeight: "600",
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 20,
+    maxHeight: '80%',
   },
-  cityStatsSection: {
-    marginBottom: SPACING[6],
-  },
-  cityStatsCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: SPACING[4],
-    shadowColor: COLORS.gray[900],
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cityStatRow: {
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SPACING[3],
+    paddingHorizontal: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray[100],
+    borderBottomColor: '#E5E7EB',
   },
-  cityStatLabel: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.secondary,
-    fontWeight: "500",
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
   },
-  cityStatValue: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.primary,
-    fontWeight: "bold",
+  modalScrollView: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  viewAllButton: {
+    backgroundColor: '#10B981',
+    marginHorizontal: 20,
+    marginVertical: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  viewAllButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING[6],
+    padding: 32,
   },
   errorTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: "bold",
-    color: COLORS.text.primary,
-    marginTop: SPACING[4],
-    marginBottom: SPACING[2],
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginTop: 16,
+    marginBottom: 8,
   },
   errorMessage: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.secondary,
+    fontSize: 14,
+    color: '#6B7280',
     textAlign: 'center',
-    marginBottom: SPACING[6],
+    marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: COLORS.primary[500],
-    paddingHorizontal: SPACING[6],
-    paddingVertical: SPACING[3],
-    borderRadius: RADIUS.lg,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   retryButtonText: {
-    color: COLORS.text.inverse,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: "600",
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
-export default DashboardScreen;
+export default BillboardDashboard;

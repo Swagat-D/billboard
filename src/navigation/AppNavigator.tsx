@@ -262,6 +262,7 @@ import { AppTabParamList } from '../types/navigation.types';
 
 import DashboardScreen from '../screens/home/DashboardScreen';
 import CameraScreen from '../screens/camera/CameraScreen';
+import NotificationsScreen from '../screens/home/NotificationsScreen';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 const Stack = createStackNavigator();
@@ -273,7 +274,13 @@ const DashboardStack = () => (
       component={DashboardScreen}
       options={{ headerShown: false }}
     />
+    <Stack.Screen 
+      name="Notifications" 
+      component={NotificationsScreen}
+      options={{ title: 'Notifications' }}
+    />
   </Stack.Navigator>
+  
 );
 
 const CameraStack = () => (

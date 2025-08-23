@@ -1,13 +1,15 @@
-import { configureStore, combineReducers } from '@reduxjs/toolkit';
-import { persistStore, persistReducer } from 'redux-persist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useDispatch, useSelector, TypedUseSelectorHook } from 'react-redux';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
+import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
+import { persistReducer, persistStore } from 'redux-persist';
 
 // Import slice reducers
 import authReducer from './slices/authSlice';
+import dashboardReducer from './slices/dashboardSlice';
+import cameraReducer from './slices/cameraSlice'
+import notificationReducer from './slices/notificationSlice'
 // import userReducer from './slices/userSlice';
 // import reportReducer from './slices/reportSlice';
-// import cameraReducer from './slices/cameraSlice';
 // import mapReducer from './slices/mapSlice';
 // import gamificationReducer from './slices/gamificationSlice';
 
@@ -16,9 +18,11 @@ const rootReducer = combineReducers({
   auth: authReducer,
   // user: userReducer,
   // report: reportReducer,
-  // camera: cameraReducer,
+  camera: cameraReducer,
   // map: mapReducer,
   // gamification: gamificationReducer,
+  dashboard: dashboardReducer,
+  notifications: notificationReducer
 });
 
 // Persist config

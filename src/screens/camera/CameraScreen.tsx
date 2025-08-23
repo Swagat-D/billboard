@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { Camera, CameraType, CameraView, FlashMode } from 'expo-camera';
+import { Camera, CameraView, FlashMode, CameraType as ExpoCameraType, CameraType } from 'expo-camera';
 import * as Location from 'expo-location';
 import * as MediaLibrary from 'expo-media-library';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -30,7 +30,6 @@ import {
 } from '../../store/slices/cameraSlice';
 
 const { width, height } = Dimensions.get('window');
-// const isSmallDevice = width < 375; // Remove unused
 
 interface DetectionOverlayProps {
   detectionResult: any;
@@ -55,15 +54,15 @@ const CameraScreen: React.FC = ({ navigation }: any) => {
     currentLocation, 
     detectionResult, 
     isDetecting
-  } = useAppSelector((state) => state.camera);
+  } = useAppSelector((state: any) => state.camera ?? {});
   
   const cameraRef = useRef<CameraView>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [hasLocationPermission, setHasLocationPermission] = useState<boolean | null>(null); 
   const [hasMediaLibraryPermission, setHasMediaLibraryPermission] = useState<boolean | null>(null); 
-  const [cameraType, setCameraType] = useState<CameraType>(CameraType.back);
-  const [flashMode, setFlashMode] = useState<FlashMode>(FlashMode.off);
+  const [cameraType, setCameraType] = useState<'front' | 'back'>('back');
+  const [flashMode, setFlashMode] = useState<'off' | 'on' | 'auto'>('on');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -279,9 +278,7 @@ const CameraScreen: React.FC = ({ navigation }: any) => {
       }, 1000);
 
       const video = await cameraRef.current.recordAsync({
-        quality: '720p',
-        maxDuration: 60, // 60 seconds max
-        mute: false,
+        maxDuration: 60,
       });
 
       if (video) {
@@ -329,17 +326,17 @@ const CameraScreen: React.FC = ({ navigation }: any) => {
 
   const toggleFlash = () => {
     setFlashMode(current => 
-      current === FlashMode.off 
-        ? FlashMode.on 
-        : current === FlashMode.on 
-        ? FlashMode.auto 
-        : FlashMode.off
+      current === 'off'
+        ? 'on'
+        : current === 'on'
+        ? 'auto'
+        : 'off'
     );
   };
 
   const flipCamera = () => {
     setCameraType(current => 
-      current === CameraType.back ? CameraType.front : CameraType.back
+      current === 'back' ? 'front' : 'back'
     );
   };
 
@@ -351,8 +348,8 @@ const CameraScreen: React.FC = ({ navigation }: any) => {
 
   const getFlashIcon = () => {
     switch (flashMode) {
-      case FlashMode.on: return 'flash';
-      case FlashMode.auto: return 'flash-outline';
+      case 'on': return 'flash';
+      case 'auto': return 'flash-outline';
       default: return 'flash-off';
     }
   };
