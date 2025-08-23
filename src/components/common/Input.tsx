@@ -5,7 +5,7 @@ interface InputProps {
   label: string;
   placeholder?: string;
   secureTextEntry?: boolean;
-  value: string;
+  value: string | undefined;
   onChangeText: (text: string) => void;
   onBlur?: ()=> void;
   error?:string;
@@ -16,6 +16,10 @@ interface InputProps {
   keyboardType?: string;
   autoCapitalize?: string;
   autoComplete?: string;
+  editable?: boolean;
+  maxLength?: number;
+  multiline?: boolean;
+  numberOfLines?: number;
 }
 
 const Input: React.FC<InputProps> = ({

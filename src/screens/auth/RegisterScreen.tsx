@@ -27,7 +27,7 @@ import { VALIDATION_RULES } from '../../constants/app';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { signupUser, clearError } from '../../store/slices/authSlice';
 
-type Props = AuthStackScreenProps<'Signup'>;
+type Props = AuthStackScreenProps<'Register'>;
 
 const registerSchema = yup.object().shape({
   name: yup.string().required('Name is required'),

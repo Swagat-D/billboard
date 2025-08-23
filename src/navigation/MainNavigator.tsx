@@ -15,6 +15,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 const MainNavigator: React.FC = () => {
   const dispatch = useAppDispatch();
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {

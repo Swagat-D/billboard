@@ -4,11 +4,13 @@ import { AuthStackParamList } from '../types/navigation.types';
 
 // Auth Screens
 import SplashScreen from '../screens/auth/SplashScreen';
-//import OnboardingScreen from '../screens/auth/OnboardingScreen';
+import OnboardingScreen from '../screens/auth/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
-//import ProfileSetupScreen from '../screens/auth/ProfileSetupScreen';
+import ProfileSetupScreen from '../screens/auth/ProfileSetupScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
@@ -25,7 +27,10 @@ const AuthNavigator: React.FC = () => {
         name="Splash" 
         component={SplashScreen} 
       />
-      
+      <Stack.Screen 
+        name="Onboarding" 
+        component={OnboardingScreen} 
+      />
       <Stack.Screen 
         name="Login" 
         component={LoginScreen} 
@@ -49,7 +54,30 @@ const AuthNavigator: React.FC = () => {
           headerBackTitleVisible: false,
         }}
       />
+      <Stack.Screen 
+        name="ForgotPassword" 
+        component={ForgotPasswordScreen}
+        options={{
+          animationTypeForReplace: 'push',
+        }}
+      />
       
+      <Stack.Screen 
+        name="ResetPassword" 
+        component={ResetPasswordScreen}
+        options={{
+          animationTypeForReplace: 'push',
+        }}
+      />
+      <Stack.Screen 
+        name="ProfileSetup" 
+        component={ProfileSetupScreen}
+        options={{
+          title: 'Complete Profile',
+          headerShown: true,
+          headerLeft: () => null,
+        }}
+      />
     </Stack.Navigator>
   );
 };

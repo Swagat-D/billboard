@@ -7,6 +7,7 @@ interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
+  rightIcon?: string;
   style?: React.CSSProperties | object;
 }
 
