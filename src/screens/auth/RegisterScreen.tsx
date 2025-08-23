@@ -90,6 +90,53 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const testSignupEndpoint = async () => {
+  const testUrl = 'http://192.168.220.1:5000/api/auth/signup';
+  const testData = {
+    name: "Test User",
+    email: "test@example.com",
+    password: "Test@1234",
+    confirmPassword: "Test@1234",
+    phoneNumber: "1234567890"
+  };
+
+  console.log('🧪 Testing direct fetch to:', testUrl);
+  
+  try {
+    const response = await fetch(testUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(testData)
+    });
+
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response headers:', response.headers);
+    
+    const responseText = await response.text();
+    console.log('📡 Raw response:', responseText);
+    
+    try {
+      const jsonResponse = JSON.parse(responseText);
+      console.log('📡 Parsed response:', jsonResponse);
+    } catch (parseError) {
+      console.log('❌ Failed to parse response as JSON:', parseError);
+    }
+    
+  } catch (fetchError) {
+    console.log('❌ Fetch error:', fetchError);
+    if (fetchError instanceof Error) {
+      console.log('❌ Error type:', fetchError.name);
+      console.log('❌ Error message:', fetchError.message);
+    } else {
+      console.log('❌ Unknown error:', fetchError);
+    }
+  }
+};
+
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />

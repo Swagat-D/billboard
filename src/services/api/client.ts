@@ -36,81 +36,78 @@ class APIClient {
   }
 
   private setupInterceptors(): void {
-    // Request interceptor - Add auth token
-      this.client.interceptors.request.use(
-      async (config: import('axios').InternalAxiosRequestConfig) => {
-        try {
-          const token = await storageService.getItem(STORAGE_KEYS.AUTH_TOKEN);
-          if (token) {
-            if (!config.headers) {
-              config.headers = {} as import('axios').AxiosRequestHeaders;
-            }
-            config.headers['Authorization'] = `Bearer ${token}`;
+  // Request interceptor - Add auth token
+  this.client.interceptors.request.use(
+    async (config: import('axios').InternalAxiosRequestConfig) => {
+      try {
+        const token = await storageService.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        if (token) {
+          if (!config.headers) {
+            config.headers = {} as import('axios').AxiosRequestHeaders;
           }
-        } catch (error) {
-          console.log('Error getting token from storage:', error);
+          config.headers['Authorization'] = `Bearer ${token}`;
         }
-
-        // Log request in development
-        if (__DEV__) {
-          console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
-          if (config.data) {
-            console.log('Request data:', config.data);
-          }
-        }
-
-        return config;
-      },
-      (error: any) => {
-        console.log('Request interceptor error:', error);
-        return Promise.reject(error);
+      } catch (error) {
+        console.log('Error getting token from storage:', error);
       }
-    );
 
-    // Response interceptor - Handle responses and errors
-    this.client.interceptors.response.use(
-      (response: AxiosResponse) => {
-        if (__DEV__) {
-          console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`);
-          console.log('Status:', response.status);
-          console.log('Response data:', response.data);
+      // Enhanced logging
+      if (__DEV__) {
+        console.log('🔧 API Config BASE_URL:', this.client.defaults.baseURL);
+        console.log('🚀 Full Request URL:', `${this.client.defaults.baseURL}${config.url}`);
+        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        console.log('📋 Request headers:', config.headers);
+        if (config.data) {
+          console.log('📤 Request data:', config.data);
         }
+        console.log('⏱️ Request timeout:', config.timeout);
+      }
+
+      return config;
+    },
+    (error: any) => {
+      console.log('❌ Request interceptor error:', error);
+      return Promise.reject(error);
+    }
+  );
+
+  // Response interceptor - Handle responses and errors
+  this.client.interceptors.response.use(
+    (response: AxiosResponse) => {
+      if (__DEV__) {
+        console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`);
+        console.log('📊 Status:', response.status);
+        console.log('📥 Response headers:', response.headers);
+        console.log('📥 Response data:', response.data);
+      }
+      
+      return response;
+    },
+    async (error: any) => {
+      if (__DEV__) {
+        console.log('❌ API Error Details:');
+        console.log('🌐 Request URL:', error.config?.url);
+        console.log('🌐 Full URL:', `${error.config?.baseURL}${error.config?.url}`);
+        console.log('📡 Error code:', error.code);
+        console.log('📡 Error message:', error.message);
+        console.log('📡 Network state:', navigator?.onLine ? 'Online' : 'Offline');
         
-        return response;
-      },
-      async (error: any) => {
-        const originalRequest = error.config;
-
-        if (__DEV__) {
-          console.log(`❌ API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
-          console.log('Error status:', error.response?.status);
-          console.log('Error data:', error.response?.data);
+        if (error.response) {
+          console.log('📡 Response status:', error.response.status);
+          console.log('📡 Response data:', error.response.data);
+          console.log('📡 Response headers:', error.response.headers);
+        } else if (error.request) {
+          console.log('📡 No response received');
+          console.log('📡 Request details:', error.request);
         }
-
-        // Handle 401 unauthorized - token expired or invalid
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          
-          try {
-            await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-            await storageService.removeItem(STORAGE_KEYS.USER_DATA);
-            
-            console.log('🔄 Cleared auth data due to 401 error');
-            
-            
-          } catch (clearError) {
-            console.log('Error clearing auth data:', clearError);
-          }
-        }
-
-        if (!error.response) {
-          console.log('🌐 Network error detected');
-        }
-
-        return Promise.reject(this.normalizeError(error));
       }
-    );
-  }
+
+      // ... rest of your error handling code
+
+      return Promise.reject(this.normalizeError(error));
+    }
+  );
+}
 
   private normalizeError(error: any): APIError {
     if (error.response) {
