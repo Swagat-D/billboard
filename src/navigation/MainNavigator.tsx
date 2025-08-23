@@ -5,7 +5,7 @@ import { checkAuthStatus } from '../store/slices/authSlice';
 
 // Navigators
 import AuthNavigator from './AuthNavigator';
-//import AppNavigator from './AppNavigator';
+import AppNavigator from './AppNavigator';
 //import SplashScreen from '../screens/auth/SplashScreen';
 import { RootStackParamList } from '../types/navigation.types';
 import { APP_CONFIG } from '../constants/app';
@@ -40,7 +40,7 @@ const MainNavigator: React.FC = () => {
         // User is authenticated - show main app navigation
         <Stack.Screen 
           name="App" 
-          component={AuthNavigator} 
+          component={AppNavigator} 
         />
       ) : (
         // User is not authenticated - show auth navigation

@@ -252,3 +252,99 @@ const AppNavigator: React.FC = () => {
 };
 
 export default AppNavigator;*/
+
+import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../constants/themes/theme';
+import { AppTabParamList } from '../types/navigation.types';
+
+import DashboardScreen from '../screens/home/DashboardScreen';
+import CameraScreen from '../screens/camera/CameraScreen';
+
+const Tab = createBottomTabNavigator<AppTabParamList>();
+const Stack = createStackNavigator();
+
+const DashboardStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen 
+      name="DashboardMain" 
+      component={DashboardScreen}
+      options={{ headerShown: false }}
+    />
+  </Stack.Navigator>
+);
+
+const CameraStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen 
+      name="CameraMain" 
+      component={CameraScreen}
+      options={{ headerShown: false }}
+    />
+  </Stack.Navigator>
+);
+
+const AppNavigator: React.FC = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }: { route: { name: keyof AppTabParamList } }) => ({
+        tabBarIcon: ({
+          focused,
+          color,
+          size,
+        }: {
+          focused: boolean;
+          color: string;
+          size: number;
+        }) => {
+          let iconName: keyof typeof Ionicons.glyphMap = 'home';
+
+          switch (route.name) {
+            case 'Dashboard':
+              iconName = focused ? 'home' : 'home-outline';
+              break;
+            case 'Camera':
+              iconName = focused ? 'camera' : 'camera-outline';
+              break;
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: COLORS.primary[500],
+        tabBarInactiveTintColor: COLORS.gray[500],
+        tabBarStyle: {
+          backgroundColor: COLORS.background,
+          borderTopWidth: 1,
+          borderTopColor: COLORS.gray[200],
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 65,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen 
+        name="Dashboard" 
+        component={DashboardStack}
+        options={{
+          tabBarLabel: 'Home',
+        }}
+      />
+      <Tab.Screen 
+        name="Camera" 
+        component={CameraStack}
+        options={{
+          tabBarLabel: 'Report',
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+export default AppNavigator;
