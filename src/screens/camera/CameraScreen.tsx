@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as Location from 'expo-location';
 
 // CameraType values for expo-camera
 const CAMERA_TYPE_BACK = 'back';
@@ -225,38 +226,33 @@ const AICameraScreen = ({ navigation }: CameraScreenProps) => {
   }, [isProcessing, isDetectionEnabled]);
 
   const takePicture = async () => {
-    if (!cameraRef.current || !permission?.granted) return;
+  if (!cameraRef.current || !permission?.granted) return;
 
-    try {
-      setIsProcessing(true);
-      
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 1,
-        base64: false,
-        exif: false,
-      });
+  try {
+    setIsProcessing(true);
+    
+    const photo = await cameraRef.current.takePictureAsync({
+      quality: 1,
+      base64: false,
+      exif: false,
+    });
 
-      if (!photo) return;
+    if (!photo) return;
 
-      setCapturedPhoto(photo.uri);
-      
-      // Process the captured photo with Google Vision API
-      const fullResults = await processFrameWithGoogleVision(photo.uri);
-      
-      // Navigate to report creation with photo and detection results
-      navigation.navigate('CreateReport', {
-        photoUri: photo.uri,
-        detectionResults: fullResults,
-        location: 'Current Location', // Get from GPS
-      });
-      
-    } catch (error) {
-      Alert.alert('Error', 'Failed to capture photo. Please try again.');
-      console.error('Capture error:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+    setCapturedPhoto(photo.uri);
+    
+    navigation.navigate('ViolationReview', {
+      photoUri: photo.uri,
+      detectionResults: detectionResults,
+    });
+    
+  } catch (error) {
+    Alert.alert('Error', 'Failed to capture photo. Please try again.');
+    console.error('Capture error:', error);
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const toggleFlash = () => {
     setFlashMode(prev => {

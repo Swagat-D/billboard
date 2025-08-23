@@ -54,7 +54,8 @@
     "react-navigation": "^5.0.0",
     "react-redux": "^9.2.0",
     "redux-persist": "^6.0.0",
-    "yup": "^1.7.0"
+    "yup": "^1.7.0",
+    "expo-clipboard": "~7.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
