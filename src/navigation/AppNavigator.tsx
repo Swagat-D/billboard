@@ -263,6 +263,7 @@ import { AppTabParamList } from '../types/navigation.types';
 import DashboardScreen from '../screens/home/DashboardScreen';
 import CameraScreen from '../screens/camera/CameraScreen';
 import NotificationsScreen from '../screens/home/NotificationsScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 const Stack = createStackNavigator();
@@ -277,7 +278,7 @@ const DashboardStack = () => (
     <Stack.Screen 
       name="Notifications" 
       component={NotificationsScreen}
-      options={{ title: 'Notifications' }}
+      options={{ headerShown: false }}
     />
   </Stack.Navigator>
   
@@ -288,6 +289,21 @@ const CameraStack = () => (
     <Stack.Screen 
       name="CameraMain" 
       component={CameraScreen}
+      options={{ headerShown: false }}
+    />
+  </Stack.Navigator>
+);
+
+const ProfileStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen 
+      name="ProfileMain" 
+      component={ProfileScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="Notifications" 
+      component={NotificationsScreen}
       options={{ headerShown: false }}
     />
   </Stack.Navigator>
@@ -314,6 +330,9 @@ const AppNavigator: React.FC = () => {
               break;
             case 'Camera':
               iconName = focused ? 'camera' : 'camera-outline';
+              break;
+            case 'Profile':
+              iconName = focused ? 'person' : 'person-outline';
               break;
           }
 
@@ -350,7 +369,15 @@ const AppNavigator: React.FC = () => {
           tabBarLabel: 'Report',
         }}
       />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileStack}
+        options={{
+          tabBarLabel: 'Profile',
+        }}
+      />
     </Tab.Navigator>
+    
   );
 };
 

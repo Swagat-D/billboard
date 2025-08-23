@@ -1,778 +1,741 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
-import { Camera, CameraView, FlashMode, CameraType as ExpoCameraType, CameraType } from 'expo-camera';
-import * as Location from 'expo-location';
-import * as MediaLibrary from 'expo-media-library';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  Linking,
+  View,
+  Text,
+  StyleSheet,
   SafeAreaView,
   StatusBar,
-  StyleSheet,
-  Text,
   TouchableOpacity,
-  View
+  Animated,
+  Alert,
+  Dimensions,
+  ActivityIndicator,
 } from 'react-native';
-import ErrorBoundary from '../../components/common/ErrorBoundary';
-import LoadingOverlay from '../../components/common/LoadingSpinner';
-import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '../../constants/themes/theme';
-import { useAppDispatch, useAppSelector } from '../../store';
-import {
-  clearDetectionResult,
-  detectViolation,
-  setCurrentLocation
-} from '../../store/slices/cameraSlice';
+import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { StackNavigationProp } from '@react-navigation/stack';
 
-const { width, height } = Dimensions.get('window');
+// CameraType values for expo-camera
+const CAMERA_TYPE_BACK = 'back';
+const CAMERA_TYPE_FRONT = 'front';
+type CameraType = typeof CAMERA_TYPE_BACK | typeof CAMERA_TYPE_FRONT;
 
-interface DetectionOverlayProps {
-  detectionResult: any;
-  isVisible: boolean;
+// Define FlashMode values since only the type is exported
+const FLASH_MODE_ON = 'on';
+const FLASH_MODE_OFF = 'off';
+const FLASH_MODE_AUTO = 'auto';
+type FlashModeType = typeof FLASH_MODE_ON | typeof FLASH_MODE_OFF | typeof FLASH_MODE_AUTO;
+
+type CameraScreenProps = {
+  navigation: StackNavigationProp<any>;
+};
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// Types for detection results
+interface DetectionResult {
+  type: 'violation' | 'hazard' | 'qr' | 'license' | 'dimension';
+  confidence: number;
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  message: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
 }
 
-interface CameraControlsProps {
-  onTakePhoto: () => void;
-  onStartRecording: () => void;
-  onStopRecording: () => void;
-  isRecording: boolean;
-  canTakePhoto: boolean;
-  flashMode: FlashMode;
-  onFlashToggle: () => void;
-  cameraType: CameraType;
-  onCameraFlip: () => void;
+interface ViolationAlert {
+  id: string;
+  type: string;
+  message: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  timestamp: number;
 }
 
-const CameraScreen: React.FC = ({ navigation }: any) => {
-  const dispatch = useAppDispatch();
-  const { 
-    currentLocation, 
-    detectionResult, 
-    isDetecting
-  } = useAppSelector((state: any) => state.camera ?? {});
-  
-  const cameraRef = useRef<CameraView>(null);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [hasLocationPermission, setHasLocationPermission] = useState<boolean | null>(null); 
-  const [hasMediaLibraryPermission, setHasMediaLibraryPermission] = useState<boolean | null>(null); 
-  const [cameraType, setCameraType] = useState<'front' | 'back'>('back');
-  const [flashMode, setFlashMode] = useState<'off' | 'on' | 'auto'>('on');
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [showDetectionOverlay, setShowDetectionOverlay] = useState(false);
+const AICameraScreen = ({ navigation }: CameraScreenProps) => {
+  const [flashMode, setFlashMode] = useState<FlashModeType>(FLASH_MODE_OFF);
+  const [cameraType, setCameraType] = useState<CameraType>(CAMERA_TYPE_BACK);
+
+  // Camera ref for taking pictures
+  const cameraRef = useRef<any>(null);
+
+  // Camera permissions
+  const [permission, requestPermission] = useCameraPermissions();
+
+  // State management
+  const [isActive, setIsActive] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [detectionResults, setDetectionResults] = useState<DetectionResult[]>([]);
+  const [violationAlerts, setViolationAlerts] = useState<ViolationAlert[]>([]);
+  const [isDetectionEnabled, setIsDetectionEnabled] = useState(true);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
 
   // Animations
-  const recordingAnimation = useRef(new Animated.Value(1)).current;
-  const detectionAnimation = useRef(new Animated.Value(0)).current;
-  const controlsAnimation = useRef(new Animated.Value(1)).current;
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scanLineAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const alertFadeAnim = useRef(new Animated.Value(0)).current;
 
-  const stopRecording = useCallback(() => {
-    setIsRecording(false);
-    setRecordingTime(0);
-    recordingAnimation.stopAnimation();
-    recordingAnimation.setValue(1);
+  // Frame processing interval
+  const frameProcessingInterval = useRef<number | null>(null);
+
+  useEffect(() => {
+    startScanAnimation();
+    startFrameProcessing();
     
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+    return () => {
+      setIsActive(false);
+      if (frameProcessingInterval.current) {
+        clearInterval(frameProcessingInterval.current);
+      }
+    };
+  }, []);
 
-    if (cameraRef.current) {
-      cameraRef.current.stopRecording();
+  useEffect(() => {
+    if (violationAlerts.length > 0) {
+      showAlertAnimation();
     }
-  }, [recordingAnimation, cameraRef]);
+  }, [violationAlerts]);
 
-  const showDetectionAnimation = useCallback(() => {
-    setShowDetectionOverlay(true);
-    
+  useEffect(() => {
+    if (isDetectionEnabled && isActive) {
+      startFrameProcessing();
+    } else {
+      stopFrameProcessing();
+    }
+  }, [isDetectionEnabled, isActive]);
+
+  const startScanAnimation = () => {
+    const scanAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanLineAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanLineAnim, {
+          toValue: 0,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    scanAnimation.start();
+  };
+
+  const showAlertAnimation = () => {
     Animated.sequence([
-      Animated.timing(detectionAnimation, {
+      Animated.timing(alertFadeAnim, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
       }),
-      Animated.delay(2000),
-      Animated.timing(detectionAnimation, {
-        toValue: 0,
-        duration: 300,
+      Animated.timing(pulseAnim, {
+        toValue: 1.1,
+        duration: 200,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      setShowDetectionOverlay(false);
-    });
-  }, [detectionAnimation]);
-
-  const getCurrentLocation = useCallback(async () => {
-    try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      
-      dispatch(setCurrentLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy || 0,
-        timestamp: location.timestamp,
-      }));
-    } catch (error) {
-      console.error('Location error:', error);
-      Alert.alert(
-        'Location Error',
-        'Unable to get your current location. Please ensure location services are enabled.',
-        [
-          { text: 'Retry', onPress: getCurrentLocation },
-          { text: 'Continue', style: 'cancel' }
-        ]
-      );
-    }
-  }, [dispatch]);
-
-
-  const requestPermissions = useCallback(async () => {
-    try {
-      setIsInitializing(true);
-
-      // Camera permissions
-      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
-      setHasCameraPermission(cameraStatus === 'granted');
-
-      // Location permissions
-      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-      setHasLocationPermission(locationStatus === 'granted');
-
-      // Media library permissions
-      const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
-      setHasMediaLibraryPermission(mediaStatus === 'granted');
-
-      // Audio permissions for video recording
-      const { status: audioStatus } = await Camera.requestMicrophonePermissionsAsync();
-
-      const allPermissionsGranted = cameraStatus === 'granted' && 
-                                   locationStatus === 'granted' && 
-                                   mediaStatus === 'granted' && 
-                                   audioStatus === 'granted';
-
-      setHasPermission(allPermissionsGranted);
-
-      if (!allPermissionsGranted) {
-        showPermissionAlert();
-      }
-    } catch (error) {
-      console.error('Permission request error:', error);
-      Alert.alert('Error', 'Failed to request permissions. Please try again.');
-    } finally {
-      setIsInitializing(false);
-    }
-  }, [dispatch]);
-
-  useFocusEffect(
-    useCallback(() => {
-      requestPermissions();
-      return () => {
-        if (isRecording) {
-          stopRecording();
-        }
-        if (recordingTimerRef.current) {
-          clearInterval(recordingTimerRef.current);
-        }
-        dispatch(clearDetectionResult());
-      };
-    }, [isRecording, requestPermissions, stopRecording, dispatch])
-  );
-
-  useEffect(() => {
-    if (hasPermission && hasLocationPermission) {
-      getCurrentLocation();
-    }
-  }, [hasPermission, hasLocationPermission, getCurrentLocation]);
-
-  useEffect(() => {
-    if (detectionResult) {
-      showDetectionAnimation();
-    }
-  }, [detectionResult, showDetectionAnimation]);
-
-  const showPermissionAlert = () => {
-    Alert.alert(
-      'Permissions Required',
-      'This app needs camera, location, and media library permissions to detect and report billboard violations.',
-      [
-        {
-          text: 'Settings',
-          onPress: () => Linking.openSettings(),
-        },
-        {
-          text: 'Retry',
-          onPress: requestPermissions,
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => navigation.goBack(),
-        },
-      ]
-    );
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
-  const takePhoto = async () => {
-    if (!cameraRef.current || !hasPermission) return;
+  // Mock Google Vision API call - replace with actual implementation
+  const processFrameWithGoogleVision = async (imageUri: string): Promise<DetectionResult[]> => {
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Mock detection results - replace with actual Google Vision API calls
+    const mockResults: DetectionResult[] = [
+      {
+        type: 'violation',
+        confidence: 0.87,
+        bounds: { x: 100, y: 200, width: 200, height: 150 },
+        message: 'Oversized billboard detected',
+        severity: 'high'
+      },
+      {
+        type: 'dimension',
+        confidence: 0.92,
+        bounds: { x: 50, y: 100, width: 300, height: 200 },
+        message: 'Dimensions: 24ft x 16ft (Exceeds 20ft x 12ft limit)',
+        severity: 'medium'
+      }
+    ];
+    
+    return Math.random() > 0.7 ? mockResults : [];
+  };
+
+  // Start frame processing simulation
+  const startFrameProcessing = () => {
+    if (frameProcessingInterval.current) {
+      clearInterval(frameProcessingInterval.current);
+    }
+    
+    frameProcessingInterval.current = setInterval(() => {
+      if (isDetectionEnabled && !isProcessing) {
+        handleFrameProcessing();
+      }
+    }, 1000); // Process every second
+  };
+
+  const stopFrameProcessing = () => {
+    if (frameProcessingInterval.current) {
+      clearInterval(frameProcessingInterval.current);
+      frameProcessingInterval.current = null;
+    }
+  };
+
+  const handleFrameProcessing = useCallback(async () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      // In real implementation, you'd extract frame data here
+      const mockImageUri = 'mock://frame';
+      const results = await processFrameWithGoogleVision(mockImageUri);
+      
+      setDetectionResults(results);
+      
+      // Check for violations
+      const violations = results.filter(r => r.type === 'violation' && r.confidence > 0.8);
+      if (violations.length > 0) {
+        const newAlert: ViolationAlert = {
+          id: Date.now().toString(),
+          type: violations[0].type,
+          message: violations[0].message,
+          severity: violations[0].severity,
+          timestamp: Date.now(),
+        };
+        
+        setViolationAlerts(prev => [newAlert, ...prev.slice(0, 2)]); // Keep last 3 alerts
+      }
+    } catch (error) {
+      console.error('Frame processing error:', error);
+    } finally {
+      setTimeout(() => setIsProcessing(false), 500); // Throttle processing
+    }
+  }, [isProcessing, isDetectionEnabled]);
+
+  const takePicture = async () => {
+    if (!cameraRef.current || !permission?.granted) return;
 
     try {
+      setIsProcessing(true);
+      
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
+        quality: 1,
         base64: false,
-        skipProcessing: false,
+        exif: false,
       });
 
-      if (photo) {
-        // Trigger AI detection
-        await handleAIDetection(photo.uri, 'photo');
-        
-        // Navigate to preview screen
-        navigation.navigate('PhotoPreview', {
-          photoUri: photo.uri,
-          location: currentLocation,
-          detectionResult,
-        });
-      }
+      if (!photo) return;
+
+      setCapturedPhoto(photo.uri);
+      
+      // Process the captured photo with Google Vision API
+      const fullResults = await processFrameWithGoogleVision(photo.uri);
+      
+      // Navigate to report creation with photo and detection results
+      navigation.navigate('CreateReport', {
+        photoUri: photo.uri,
+        detectionResults: fullResults,
+        location: 'Current Location', // Get from GPS
+      });
+      
     } catch (error) {
-      console.error('Photo capture error:', error);
       Alert.alert('Error', 'Failed to capture photo. Please try again.');
-    }
-  };
-
-  const startRecording = async () => {
-    if (!cameraRef.current || !hasPermission || isRecording) return;
-
-    try {
-      setIsRecording(true);
-      setRecordingTime(0);
-      
-      // Start recording animation
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(recordingAnimation, {
-            toValue: 0.3,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(recordingAnimation, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-
-      // Start timer
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-
-      const video = await cameraRef.current.recordAsync({
-        maxDuration: 60,
-      });
-
-      if (video) {
-        await handleAIDetection(video.uri, 'video');
-        
-        navigation.navigate('VideoPreview', {
-          videoUri: video.uri,
-          location: currentLocation,
-          detectionResult,
-        });
-      }
-    } catch (error) {
-      console.error('Recording error:', error);
-      Alert.alert('Error', 'Failed to record video. Please try again.');
+      console.error('Capture error:', error);
     } finally {
-      stopRecording();
-    }
-  };
-
-  const handleAIDetection = async (mediaUri: string, mediaType: 'photo' | 'video') => {
-    if (!currentLocation) {
-      Alert.alert('Location Required', 'Location data is required for violation detection.');
-      return;
-    }
-
-    try {
-      const detectionData = {
-        mediaUri,
-        mediaType,
-        location: currentLocation,
-        timestamp: new Date().toISOString(),
-      };
-
-      const result = await dispatch(detectViolation(detectionData)).unwrap();
-      
-      if (result.violations && result.violations.length > 0) {
-        setShowDetectionOverlay(true);
-        showDetectionAnimation();
-      }
-    } catch (error) {
-      console.error('AI Detection error:', error);
-      // Don't show error to user for detection failures, as it's supplementary
+      setIsProcessing(false);
     }
   };
 
   const toggleFlash = () => {
-    setFlashMode(current => 
-      current === 'off'
-        ? 'on'
-        : current === 'on'
-        ? 'auto'
-        : 'off'
-    );
+    setFlashMode(prev => {
+      switch (prev) {
+        case FLASH_MODE_OFF: return FLASH_MODE_ON;
+        case FLASH_MODE_ON: return FLASH_MODE_AUTO;
+        case FLASH_MODE_AUTO: return FLASH_MODE_OFF;
+        default: return FLASH_MODE_OFF;
+      }
+    });
   };
 
-  const flipCamera = () => {
-    setCameraType(current => 
-      current === 'back' ? 'front' : 'back'
-    );
+  const toggleCamera = () => {
+    setCameraType(prev => prev === CAMERA_TYPE_BACK ? CAMERA_TYPE_FRONT : CAMERA_TYPE_BACK);
   };
 
-  const formatRecordingTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+
 
   const getFlashIcon = () => {
     switch (flashMode) {
-      case 'on': return 'flash';
-      case 'auto': return 'flash-outline';
+      case FLASH_MODE_ON: return 'flash';
+      case FLASH_MODE_AUTO: return 'flash-outline';
       default: return 'flash-off';
     }
   };
 
-  const DetectionOverlay: React.FC<DetectionOverlayProps> = ({ detectionResult, isVisible }) => {
-    if (!isVisible || !detectionResult) return null;
-
-    return (
-      <Animated.View
-        style={[
-          styles.detectionOverlay,
-          {
-            opacity: detectionAnimation,
-            transform: [{
-              scale: detectionAnimation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.8, 1],
-              }),
-            }],
-          },
-        ]}
-      >
-        <View style={styles.detectionAlert}>
-          <Ionicons name="warning" size={24} color={COLORS.warning} />
-          <Text style={styles.detectionText}>
-            Potential violation detected!
-          </Text>
-        </View>
-        
-        {detectionResult.violations && detectionResult.violations.length > 0 && (
-          <View style={styles.violationsList}>
-            {detectionResult.violations.slice(0, 2).map((violation: any, index: number) => (
-              <Text key={index} style={styles.violationItem}>
-                • {violation.type}: {violation.confidence}% confidence
-              </Text>
-            ))}
-          </View>
-        )}
-      </Animated.View>
-    );
+  const getFlashLabel = () => {
+    switch (flashMode) {
+      case FLASH_MODE_ON: return 'ON';
+      case FLASH_MODE_AUTO: return 'AUTO';
+      default: return 'OFF';
+    }
   };
 
-  const CameraControls: React.FC<CameraControlsProps> = ({
-    onTakePhoto,
-    onStartRecording,
-    onStopRecording,
-    isRecording,
-    canTakePhoto,
-    flashMode,
-    onFlashToggle,
-    cameraType,
-    onCameraFlip,
-  }) => (
-    <Animated.View
-      style={[
-        styles.controlsContainer,
-        { opacity: controlsAnimation },
-      ]}
-    >
-      {/* Top Controls */}
-      <View style={styles.topControls}>
-        <TouchableOpacity
-          style={styles.controlButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="close" size={28} color={COLORS.text.inverse} />
-        </TouchableOpacity>
-        
-        <View style={styles.topRightControls}>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={onFlashToggle}
-          >
-            <Ionicons name={getFlashIcon() as any} size={24} color={COLORS.text.inverse} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={onCameraFlip}
-          >
-            <Ionicons name="camera-reverse" size={24} color={COLORS.text.inverse} />
-          </TouchableOpacity>
-        </View>
-      </View>
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return '#DC2626';
+      case 'high': return '#EA580C';
+      case 'medium': return '#D97706';
+      default: return '#65A30D';
+    }
+  };
 
-      {/* Recording Timer */}
-      {isRecording && (
-        <View style={styles.recordingTimer}>
-          <Animated.View
-            style={[
-              styles.recordingDot,
-              { opacity: recordingAnimation },
-            ]}
-          />
-          <Text style={styles.recordingTime}>
-            REC {formatRecordingTime(recordingTime)}
-          </Text>
-        </View>
-      )}
-
-      {/* Bottom Controls */}
-      <View style={styles.bottomControls}>
-        <View style={styles.captureControls}>
-          <TouchableOpacity
-            style={styles.galleryButton}
-            onPress={() => navigation.navigate('ReportHistory')}
-          >
-            <Ionicons name="images" size={24} color={COLORS.text.inverse} />
-          </TouchableOpacity>
-
-          <View style={styles.mainCaptureContainer}>
-            {/* Photo Button */}
-            <TouchableOpacity
-              style={[
-                styles.captureButton,
-                !canTakePhoto && styles.disabledButton,
-              ]}
-              onPress={onTakePhoto}
-              disabled={!canTakePhoto || isRecording}
-            >
-              <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
-
-            {/* Video Button */}
-            <TouchableOpacity
-              style={[
-                styles.videoButton,
-                isRecording && styles.videoButtonRecording,
-              ]}
-              onPress={isRecording ? onStopRecording : onStartRecording}
-              disabled={!canTakePhoto}
-            >
-              <Ionicons 
-                name={isRecording ? "stop" : "videocam"} 
-                size={24} 
-                color={isRecording ? COLORS.error : COLORS.text.inverse}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.infoButton}
-            onPress={() => navigation.navigate('Tutorial')}
-          >
-            <Ionicons name="information-circle" size={24} color={COLORS.text.inverse} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Instructions */}
-      <View style={styles.instructionsContainer}>
-        <Text style={styles.instructionsText}>
-          Point camera at billboard and tap to capture
-        </Text>
-        {currentLocation && (
-          <Text style={styles.locationText}>
-            📍 Location: {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-          </Text>
-        )}
-      </View>
-    </Animated.View>
-  );
-
-  if (hasPermission === null || isInitializing) {
+  if (!permission) {
+    // Camera permissions are still loading
     return (
-      <View style={styles.permissionContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary[500]} />
-        <Text style={styles.permissionText}>Initializing camera...</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text style={styles.loadingText}>Loading Camera...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
-      <View style={styles.permissionContainer}>
-        <Ionicons name="close" size={64} color={COLORS.gray[400]} />
-        <Text style={styles.permissionTitle}>Camera Access Required</Text>
-        <Text style={styles.permissionText}>
-          Please grant camera and location permissions to report billboard violations.
-        </Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermissions}>
-          <Text style={styles.permissionButtonText}>Grant Permissions</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.permissionContainer}>
+          <Ionicons name="camera-outline" size={64} color="#9CA3AF" />
+          <Text style={styles.permissionTitle}>Camera Permission Required</Text>
+          <Text style={styles.permissionMessage}>
+            Enable camera access to start detecting billboard violations
+          </Text>
+          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ErrorBoundary>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="black" />
-        <LoadingOverlay visible={isDetecting} message="Analyzing image..." />
-
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      
+      {/* Camera View */}
+      <View style={styles.cameraContainer}>
         <CameraView
           ref={cameraRef}
           style={styles.camera}
           facing={cameraType}
           flash={flashMode}
-          mode="picture"
-        >
-          <DetectionOverlay 
-            detectionResult={detectionResult}
-            isVisible={showDetectionOverlay}
+        />
+        
+        {/* Scan Line Animation */}
+        {isDetectionEnabled && (
+          <Animated.View
+            style={[
+              styles.scanLine,
+              {
+                transform: [
+                  {
+                    translateY: scanLineAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, screenHeight - 200],
+                    }),
+                  },
+                ],
+              },
+            ]}
           />
+        )}
+
+        {/* Detection Overlays */}
+        {detectionResults.map((result, index) => (
+          <View
+            key={index}
+            style={[
+              styles.detectionOverlay,
+              {
+                left: result.bounds.x,
+                top: result.bounds.y,
+                width: result.bounds.width,
+                height: result.bounds.height,
+                borderColor: getSeverityColor(result.severity),
+              },
+            ]}
+          >
+            <View style={[styles.detectionLabel, { backgroundColor: getSeverityColor(result.severity) }]}>
+              <Text style={styles.detectionText}>
+                {result.type.toUpperCase()} ({Math.round(result.confidence * 100)}%)
+              </Text>
+            </View>
+          </View>
+        ))}
+
+        {/* Header Controls */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
           
-          <CameraControls
-            onTakePhoto={takePhoto}
-            onStartRecording={startRecording}
-            onStopRecording={stopRecording}
-            isRecording={isRecording}
-            canTakePhoto={hasPermission && !isDetecting}
-            flashMode={flashMode}
-            onFlashToggle={toggleFlash}
-            cameraType={cameraType}
-            onCameraFlip={flipCamera}
-          />
-        </CameraView>
-      </SafeAreaView>
-    </ErrorBoundary>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>AI Billboard Scanner</Text>
+            <View style={styles.statusIndicator}>
+              <View style={[styles.statusDot, { backgroundColor: isDetectionEnabled ? '#10B981' : '#6B7280' }]} />
+              <Text style={styles.statusText}>
+                {isDetectionEnabled ? 'Scanning Active' : 'Scanning Paused'}
+              </Text>
+            </View>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.headerButton} 
+            onPress={() => setIsDetectionEnabled(!isDetectionEnabled)}
+          >
+            <Ionicons 
+              name={isDetectionEnabled ? "eye" : "eye-off"} 
+              size={24} 
+              color="white" 
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Violation Alerts */}
+        {violationAlerts.length > 0 && (
+          <Animated.View 
+            style={[
+              styles.alertContainer,
+              { 
+                opacity: alertFadeAnim,
+                transform: [{ scale: pulseAnim }]
+              }
+            ]}
+          >
+            <View style={[styles.alertCard, { borderLeftColor: getSeverityColor(violationAlerts[0].severity) }]}>
+              <View style={styles.alertHeader}>
+                <Ionicons name="warning" size={20} color={getSeverityColor(violationAlerts[0].severity)} />
+                <Text style={styles.alertTitle}>Possible Violation Detected!</Text>
+              </View>
+              <Text style={styles.alertMessage}>{violationAlerts[0].message}</Text>
+              <Text style={styles.alertSubtext}>Click &apos;Capture&apos; to report this violation</Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Bottom Controls */}
+        <View style={styles.bottomControls}>
+          <View style={styles.controlRow}>
+            {/* Flash Control */}
+            <TouchableOpacity style={styles.controlButton} onPress={toggleFlash}>
+              <Ionicons name={getFlashIcon()} size={24} color="white" />
+              <Text style={styles.controlLabel}>{getFlashLabel()}</Text>
+            </TouchableOpacity>
+
+            {/* Capture Button */}
+            <TouchableOpacity
+              style={[styles.captureButton, isProcessing && styles.captureButtonDisabled]}
+              onPress={takePicture}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color="white" size="large" />
+              ) : (
+                <>
+                  <View style={styles.captureButtonInner} />
+                  {violationAlerts.length > 0 && (
+                    <View style={styles.captureButtonAlert}>
+                      <Ionicons name="warning" size={16} color="#DC2626" />
+                    </View>
+                  )}
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Camera Toggle */}
+            <TouchableOpacity style={styles.controlButton} onPress={toggleCamera}>
+              <Ionicons name="camera-reverse" size={24} color="white" />
+              <Text style={styles.controlLabel}>FLIP</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Detection Stats */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{detectionResults.length}</Text>
+              <Text style={styles.statLabel}>Detections</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{violationAlerts.length}</Text>
+              <Text style={styles.statLabel}>Violations</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {detectionResults.length > 0 ? Math.round(detectionResults[0]?.confidence * 100 || 0) : 0}%
+              </Text>
+              <Text style={styles.statLabel}>Confidence</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: '#000',
+  },
+  cameraContainer: {
+    flex: 1,
+    position: 'relative',
   },
   camera: {
     flex: 1,
   },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  scanLine: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    height: 2,
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  detectionOverlay: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderRadius: 8,
+  },
+  detectionLabel: {
+    position: 'absolute',
+    top: -25,
+    left: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  detectionText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    paddingHorizontal: SPACING[6],
+    padding: 20,
+    paddingTop: 50,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  permissionTitle: {
-  fontSize: TYPOGRAPHY.fontSize.xl,
-  fontWeight: "bold",
-    color: COLORS.text.primary,
-    marginTop: SPACING[4],
-    marginBottom: SPACING[2],
-    textAlign: 'center',
-  },
-  permissionText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    color: COLORS.text.secondary,
-    textAlign: 'center',
-    marginBottom: SPACING[6],
-    lineHeight: 22,
-  },
-  permissionButton: {
-    backgroundColor: COLORS.primary[500],
-    paddingHorizontal: SPACING[6],
-    paddingVertical: SPACING[4],
-    borderRadius: RADIUS.lg,
-  },
-  permissionButtonText: {
-  color: COLORS.text.inverse,
-  fontSize: TYPOGRAPHY.fontSize.md,
-  fontWeight: "600",
-  },
-  controlsContainer: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  topControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: SPACING[4],
-    paddingHorizontal: SPACING[4],
-  },
-  topRightControls: {
-    flexDirection: 'row',
-    gap: SPACING[2],
-  },
-  controlButton: {
+  headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  recordingTimer: {
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  statusIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: SPACING[4],
-    paddingVertical: SPACING[2],
-    borderRadius: RADIUS.full,
-    alignSelf: 'center',
   },
-  recordingDot: {
+  statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.error,
-    marginRight: SPACING[2],
+    marginRight: 6,
   },
-  recordingTime: {
-  color: COLORS.text.inverse,
-  fontSize: TYPOGRAPHY.fontSize.md,
-  fontWeight: "bold",
+  statusText: {
+    color: 'white',
+    fontSize: 12,
+    opacity: 0.8,
   },
-  bottomControls: {
-    paddingBottom: SPACING[8],
-    paddingHorizontal: SPACING[4],
+  alertContainer: {
+    position: 'absolute',
+    top: 120,
+    left: 20,
+    right: 20,
   },
-  captureControls: {
+  alertCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+  },
+  alertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  alertTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  alertMessage: {
+    color: 'white',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  alertSubtext: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+  },
+  bottomControls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingBottom: 34,
+  },
+  controlRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING[4],
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 20,
   },
-  galleryButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  controlButton: {
     alignItems: 'center',
   },
-  mainCaptureContainer: {
-    alignItems: 'center',
-    gap: SPACING[3],
+  controlLabel: {
+    color: 'white',
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: '600',
   },
   captureButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderWidth: 4,
-    borderColor: COLORS.text.inverse,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'white',
+    position: 'relative',
+  },
+  captureButtonDisabled: {
+    opacity: 0.6,
   },
   captureButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.text.inverse,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'white',
   },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  videoButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderWidth: 2,
-    borderColor: COLORS.text.inverse,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoButtonRecording: {
-    backgroundColor: 'rgba(244, 67, 54, 0.3)',
-    borderColor: COLORS.error,
-  },
-  infoButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  instructionsContainer: {
-    alignItems: 'center',
-    paddingHorizontal: SPACING[6],
-  },
-  instructionsText: {
-    color: COLORS.text.inverse,
-    fontSize: TYPOGRAPHY.fontSize.md,
-    textAlign: 'center',
-    marginBottom: SPACING[2],
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingHorizontal: SPACING[4],
-    paddingVertical: SPACING[2],
-    borderRadius: RADIUS.lg,
-  },
-  locationText: {
-    color: COLORS.text.inverse,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    textAlign: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingHorizontal: SPACING[3],
-    paddingVertical: SPACING[1],
-    borderRadius: RADIUS.md,
-  },
-  detectionOverlay: {
+  captureButtonAlert: {
     position: 'absolute',
-    top: '30%',
-    left: SPACING[4],
-    right: SPACING[4],
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    borderRadius: RADIUS.lg,
-    padding: SPACING[4],
-    borderWidth: 2,
-    borderColor: COLORS.warning,
-  },
-  detectionAlert: {
-    flexDirection: 'row',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'white',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING[3],
   },
-  detectionText: {
-  color: COLORS.text.inverse,
-  fontSize: TYPOGRAPHY.fontSize.md,
-  fontWeight: "600",
-  marginLeft: SPACING[2],
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 10,
   },
-  violationsList: {
-    gap: SPACING[1],
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
   },
-  violationItem: {
-    color: COLORS.text.inverse,
-    fontSize: TYPOGRAPHY.fontSize.sm,
+  statValue: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  statLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 16,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: 'white',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  permissionMessage: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  permissionButton: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 16,
   },
 });
 
-export default CameraScreen;
+export default AICameraScreen;

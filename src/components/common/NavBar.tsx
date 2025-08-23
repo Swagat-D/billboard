@@ -27,11 +27,6 @@ const NavBar: React.FC<NavBarProps> = ({
       </View>
       
       <View style={styles.rightSection}>
-        {showSettings && (
-          <TouchableOpacity style={styles.iconButton} onPress={onSettingsPress}>
-            <Ionicons name="settings-outline" size={24} color="#64748B" />
-          </TouchableOpacity>
-        )}
         
         {showNotifications && (
           <TouchableOpacity style={styles.iconButton} onPress={onNotificationPress}>

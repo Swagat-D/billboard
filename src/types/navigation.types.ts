@@ -42,6 +42,7 @@ export type RootStackParamList = {
 export type AppTabParamList = {
   Dashboard: undefined;
   Camera: undefined;
+  Profile: undefined; 
 }
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> = 

@@ -241,7 +241,6 @@ const BillboardDashboard = ({ navigation }: DashboardScreenProps) => {
     return (
       <SafeAreaView style={styles.container}>
         <NavBar 
-          onSettingsPress={() => navigation.navigate('Settings')}
           onNotificationPress={() => navigation.navigate('Notifications')}
           notificationCount={0}
         />

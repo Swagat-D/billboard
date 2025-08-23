@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import NavBar from '../../components/common/NavBar';
 import LoadingOverlay from '../../components/common/LoadingSpinner';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { 
@@ -381,12 +380,6 @@ const NotificationsScreen = ({
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-        <NavBar 
-          title="Notifications"
-          showSettings={false}
-          onNotificationPress={() => {}}
-          notificationCount={0}
-        />
         <LoadingOverlay visible={true} message="Loading notifications..." />
       </SafeAreaView>
     );

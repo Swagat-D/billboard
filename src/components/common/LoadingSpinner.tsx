@@ -18,7 +18,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ message, visible }) => 
         </View>
       </View>
     </Modal>
-  );
+  ); 
 };
 
 const styles = StyleSheet.create({
