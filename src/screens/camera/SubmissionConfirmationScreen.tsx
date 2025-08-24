@@ -108,7 +108,7 @@ Your report has been submitted to the authorities for review.
     // Reset navigation stack to home screen
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Home' }],
+      routes: [{ name: 'Dashboard' }],
     });
   };
 

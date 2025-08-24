@@ -266,6 +266,8 @@ import NotificationsScreen from '../screens/home/NotificationsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import ViolationReviewScreen from '../screens/camera/violationReviewScreen'
 import SubmissionConfirmationScreen from '../screens/camera/SubmissionConfirmationScreen'
+import ManualReportScreen from '../screens/home/ManualReportScreen'
+import AllReportsScreen from '@/screens/home/AllReportsScreen';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 const Stack = createStackNavigator();
@@ -280,6 +282,26 @@ const DashboardStack = () => (
     <Stack.Screen 
       name="Notifications" 
       component={NotificationsScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="CameraMain" 
+      component={CameraScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="ManualReport" 
+      component={ManualReportScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="SubmissionConfirmation" 
+      component={SubmissionConfirmationScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="AllReports" 
+      component={AllReportsScreen}
       options={{ headerShown: false }}
     />
   </Stack.Navigator>

@@ -338,7 +338,7 @@ const BillboardDashboard = ({ navigation }: DashboardScreenProps) => {
             <View style={styles.quickActions}>
               <TouchableOpacity
                 style={styles.quickActionButton}
-                onPress={() => navigation.navigate('Camera')}
+                onPress={() => navigation.navigate('ManualReport')}
               >
                 <View style={[styles.quickActionIcon, { backgroundColor: '#10B981' }]}>
                   <Ionicons name="add" size={24} color="white" />
@@ -348,7 +348,7 @@ const BillboardDashboard = ({ navigation }: DashboardScreenProps) => {
               
               <TouchableOpacity
                 style={styles.quickActionButton}
-                onPress={() => navigation.navigate('Scanner')}
+                onPress={() => navigation.navigate('CameraMain')}
               >
                 <View style={[styles.quickActionIcon, { backgroundColor: '#3B82F6' }]}>
                   <Ionicons name="scan" size={24} color="white" />
@@ -358,7 +358,7 @@ const BillboardDashboard = ({ navigation }: DashboardScreenProps) => {
               
               <TouchableOpacity
                 style={styles.quickActionButton}
-                onPress={() => navigation.navigate('ReportHistory')}
+                onPress={() => navigation.navigate('AllReports')}
               >
                 <View style={[styles.quickActionIcon, { backgroundColor: '#8B5CF6' }]}>
                   <Ionicons name="list" size={24} color="white" />

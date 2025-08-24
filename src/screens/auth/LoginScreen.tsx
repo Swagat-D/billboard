@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   header: { paddingTop: SPACING[12], marginBottom: SPACING[6] },
   logoSection: { alignItems: 'center' },
   logoContainer: { marginBottom: SPACING[4] },
-  logoImage: { width: isSmallDevice ? 90 : 110, height: isSmallDevice ? 90 : 110 },
+  logoImage: { width: isSmallDevice ? 90 : 110, height: isSmallDevice ? 90 : 110, borderRadius: RADIUS.full },
   appTitle: {
     fontSize: isSmallDevice ? TYPOGRAPHY.fontSize['2xl'] : TYPOGRAPHY.fontSize['3xl'],
     fontWeight: '800',
