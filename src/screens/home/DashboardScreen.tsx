@@ -348,12 +348,12 @@ const BillboardDashboard = ({ navigation }: DashboardScreenProps) => {
               
               <TouchableOpacity
                 style={styles.quickActionButton}
-                onPress={() => navigation.navigate('CameraMain')}
+                onPress={() => navigation.navigate('Heatmap')}
               >
                 <View style={[styles.quickActionIcon, { backgroundColor: '#3B82F6' }]}>
-                  <Ionicons name="scan" size={24} color="white" />
+                  <Ionicons name="map" size={24} color="white" />
                 </View>
-                <Text style={styles.quickActionText}>Scan Billboard</Text>
+                <Text style={styles.quickActionText}>View Map</Text>
               </TouchableOpacity>
               
               <TouchableOpacity

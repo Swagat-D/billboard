@@ -268,6 +268,7 @@ import ViolationReviewScreen from '../screens/camera/violationReviewScreen'
 import SubmissionConfirmationScreen from '../screens/camera/SubmissionConfirmationScreen'
 import ManualReportScreen from '../screens/home/ManualReportScreen'
 import AllReportsScreen from '@/screens/home/AllReportsScreen';
+import HeatMapScreen from '@/screens/profile/HeatmapScreem';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 const Stack = createStackNavigator();
@@ -285,11 +286,6 @@ const DashboardStack = () => (
       options={{ headerShown: false }}
     />
     <Stack.Screen 
-      name="CameraMain" 
-      component={CameraScreen}
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen 
       name="ManualReport" 
       component={ManualReportScreen}
       options={{ headerShown: false }}
@@ -302,6 +298,11 @@ const DashboardStack = () => (
     <Stack.Screen 
       name="AllReports" 
       component={AllReportsScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="Heatmap" 
+      component={HeatMapScreen}
       options={{ headerShown: false }}
     />
   </Stack.Navigator>

@@ -312,30 +312,31 @@ const AllReportsScreen = ({ navigation }: AllReportsScreenProps) => {
       </View>
 
       {/* Filter Pills */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.filterContainer}
-        contentContainerStyle={styles.filterContent}
-      >
-        {filterOptions.map((option) => (
-          <TouchableOpacity
-            key={option.key}
-            style={[
-              styles.filterPill,
-              filter === option.key && styles.filterPillActive
-            ]}
-            onPress={() => setFilter(option.key)}
-          >
-            <Text style={[
-              styles.filterPillText,
-              filter === option.key && styles.filterPillTextActive
-            ]}>
-              {option.label} ({option.count})
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.filterContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.filterContent}
+        >
+          {filterOptions.map((option) => (
+            <TouchableOpacity
+              key={option.key}
+              style={[
+                styles.filterPill,
+                filter === option.key && styles.filterPillActive
+              ]}
+              onPress={() => setFilter(option.key)}
+            >
+              <Text style={[
+                styles.filterPillText,
+                filter === option.key && styles.filterPillTextActive
+              ]}>
+                {option.label} ({option.count})
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Reports List */}
       <ScrollView
@@ -344,16 +345,18 @@ const AllReportsScreen = ({ navigation }: AllReportsScreenProps) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
         {filteredReports.map((report) => (
           <TouchableOpacity
             key={report.id}
             style={styles.reportCard}
             onPress={() => openReportDetails(report)}
+            activeOpacity={0.7}
           >
             <View style={styles.reportHeader}>
               <View style={styles.reportTitleRow}>
-                <Text style={styles.reportTitle}>{report.title}</Text>
+                <Text style={styles.reportTitle} numberOfLines={1}>{report.title}</Text>
                 <View style={[
                   styles.statusBadge,
                   { backgroundColor: `${getStatusColor(report.status)}20` }
@@ -366,13 +369,13 @@ const AllReportsScreen = ({ navigation }: AllReportsScreenProps) => {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.reportLocation}>{report.location}</Text>
+              <Text style={styles.reportLocation} numberOfLines={1}>{report.location}</Text>
             </View>
 
             <View style={styles.reportDetails}>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Violation:</Text>
-                <Text style={styles.detailValue}>{report.violationType}</Text>
+                <Text style={styles.detailValue} numberOfLines={1}>{report.violationType}</Text>
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Priority:</Text>
@@ -433,7 +436,11 @@ const AllReportsScreen = ({ navigation }: AllReportsScreenProps) => {
             </View>
 
             {selectedReport && (
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView 
+                style={styles.modalBody} 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modalScrollContent}
+              >
                 {/* Report Info */}
                 <View style={styles.modalSection}>
                   <Text style={styles.modalSectionTitle}>Report Information</Text>
@@ -526,7 +533,9 @@ const AllReportsScreen = ({ navigation }: AllReportsScreenProps) => {
   );
 };
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+const isSmallScreen = width < 375;
+const isLargeScreen = width > 414;
 
 const styles = StyleSheet.create({
   container: {
@@ -538,7 +547,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: isSmallScreen ? 8 : 12,
+    paddingTop: 28,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -547,7 +557,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : 18,
     fontWeight: '600',
     color: '#1F2937',
   },
@@ -568,38 +578,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    paddingVertical: isSmallScreen ? 8 : 12,
   },
   filterContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    minHeight: 36,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: isSmallScreen ? 12 : 16,
+    paddingVertical: isSmallScreen ? 6 : 8,
+    borderRadius: 18,
     backgroundColor: '#F3F4F6',
     marginRight: 8,
+    minHeight: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterPillActive: {
     backgroundColor: '#10B981',
   },
   filterPillText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : 14,
     fontWeight: '500',
     color: '#6B7280',
+    textAlign: 'center',
   },
   filterPillTextActive: {
     color: 'white',
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   reportCard: {
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
+    padding: isSmallScreen ? 12 : 16,
+    marginVertical: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -616,23 +634,25 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   reportTitle: {
-    fontSize: 16,
+    fontSize: isSmallScreen ? 15 : 16,
     fontWeight: '600',
     color: '#1F2937',
     flex: 1,
     marginRight: 12,
   },
   reportLocation: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#6B7280',
   },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    minWidth: isSmallScreen ? 60 : 80,
+    alignItems: 'center',
   },
   statusText: {
-    fontSize: 12,
+    fontSize: isSmallScreen ? 10 : 12,
     fontWeight: '600',
   },
   reportDetails: {
@@ -645,22 +665,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailLabel: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#6B7280',
     fontWeight: '500',
+    flex: 1,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#1F2937',
     fontWeight: '400',
+    flex: 2,
+    textAlign: 'right',
   },
   priorityBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
+    minWidth: isSmallScreen ? 50 : 60,
+    alignItems: 'center',
   },
   priorityText: {
-    fontSize: 12,
+    fontSize: isSmallScreen ? 10 : 12,
     fontWeight: '600',
   },
   reportFooter: {
@@ -680,7 +705,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewMoreText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#10B981',
     fontWeight: '500',
     marginRight: 4,
@@ -689,19 +714,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 64,
+    paddingHorizontal: 32,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : 18,
     fontWeight: '600',
     color: '#1F2937',
     marginTop: 16,
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#6B7280',
     textAlign: 'center',
-    paddingHorizontal: 32,
+    lineHeight: 20,
   },
   modalContainer: {
     flex: 1,
@@ -712,8 +739,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: 20,
+    maxHeight: height * 0.9,
+    minHeight: height * 0.5,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -724,7 +751,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E7EB',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : 18,
     fontWeight: '600',
     color: '#1F2937',
   },
@@ -733,13 +760,16 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     flex: 1,
+  },
+  modalScrollContent: {
     paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   modalSection: {
     marginVertical: 16,
   },
   modalSectionTitle: {
-    fontSize: 16,
+    fontSize: isSmallScreen ? 15 : 16,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 12,
@@ -749,15 +779,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
+    minHeight: 20,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#6B7280',
     fontWeight: '500',
     flex: 1,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#1F2937',
     fontWeight: '400',
     flex: 2,
@@ -765,7 +796,7 @@ const styles = StyleSheet.create({
   },
   modalPhoto: {
     width: '100%',
-    height: 200,
+    height: width * 0.5,
     borderRadius: 8,
     resizeMode: 'cover',
   },
@@ -812,7 +843,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   timelineTitle: {
-    fontSize: 16,
+    fontSize: isSmallScreen ? 15 : 16,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 4,
@@ -821,16 +852,17 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
   },
   timelineDescription: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#6B7280',
     marginBottom: 4,
+    lineHeight: 18,
   },
   timelineTimestamp: {
     fontSize: 12,
     color: '#9CA3AF',
   },
   notesText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : 14,
     color: '#1F2937',
     lineHeight: 20,
   },

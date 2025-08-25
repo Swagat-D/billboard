@@ -70,7 +70,7 @@ export interface APIConfig {
 }
 
 export const API_CONFIG: APIConfig = {
-  BASE_URL: __DEV__ ? 'http://10.50.48.237:5000/api' : 'http://134.209.159.190/api',
+  BASE_URL: __DEV__ ? 'http://192.168.145.210:5000/api' : 'http://134.209.159.190/api',
   TIMEOUT: 10000,
   HEADERS: {
     'Content-Type': 'application/json',
